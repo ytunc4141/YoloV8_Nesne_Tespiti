@@ -17,24 +17,19 @@ class NesneTespitUygulamasi(QMainWindow):
     def __init__(self):
         super().__init__()
         
-        # --- AYARLAR ---
         self.setWindowTitle("YOLOv8 Nesne Tespiti - Dur ve Yaya Geçidi")
-        self.setGeometry(100, 100, 1200, 700) # Pencere boyutu (Genişlik x Yükseklik)
-        self.model_yolu = "best.pt"  # Model dosyasının adı
-        # --- BURAYI EKLE ---
+        self.setGeometry(100, 100, 1200, 700)
+        self.model_yolu = "best.pt"
+
         self.cap = None 
         self.timer = QTimer()
         self.timer.timeout.connect(self.kare_guncelle)
-        # -------------------
         
-        # Değişkenler
         self.secilen_resim_yolu = None
-        self.islenmis_goruntu = None # Kaydetmek için hafızada tutacağız
+        self.islenmis_goruntu = None
         
-        # Arayüzü Kur
         self.initUI()
         
-        # Modeli Yükle
         self.modeli_yukle()
 
     def modeli_yukle(self):
@@ -51,29 +46,24 @@ class NesneTespitUygulamasi(QMainWindow):
         merkez_widget = QWidget()
         self.setCentralWidget(merkez_widget)
         
-        # Ana Düzen (Dikey)
         ana_duzen = QVBoxLayout()
         
-        # --- 1. Başlık ---
         baslik = QLabel("Trafik İşareti Tespit Sistemi")
         baslik.setAlignment(Qt.AlignCenter)
         baslik.setFont(QFont("Arial", 20, QFont.Bold))
         ana_duzen.addWidget(baslik)
 
-        # --- 2. Görüntü Panelleri (Yan Yana) ---
         resim_paneli_duzeni = QHBoxLayout()
 
-        # Sol Panel: Orijinal Resim
         gb_orijinal = QGroupBox("Orijinal Görüntü")
         gb_orijinal_layout = QVBoxLayout()
         self.lbl_orijinal = QLabel("Resim Seçilmedi")
         self.lbl_orijinal.setAlignment(Qt.AlignCenter)
         self.lbl_orijinal.setStyleSheet("background-color: #dcdcdc; border: 1px solid gray;")
-        self.lbl_orijinal.setFixedSize(500, 400) # Sabit boyut
+        self.lbl_orijinal.setFixedSize(500, 400)
         gb_orijinal_layout.addWidget(self.lbl_orijinal)
         gb_orijinal.setLayout(gb_orijinal_layout)
 
-        # Sağ Panel: Tespit Sonucu (Etiketli)
         gb_sonuc = QGroupBox("Tespit Sonucu (Tagged Image)")
         gb_sonuc_layout = QVBoxLayout()
         self.lbl_sonuc = QLabel("Henüz işlem yapılmadı")
@@ -87,14 +77,12 @@ class NesneTespitUygulamasi(QMainWindow):
         resim_paneli_duzeni.addWidget(gb_sonuc)
         ana_duzen.addLayout(resim_paneli_duzeni)
 
-        # --- 3. İstatistik ve Bilgi Alanı ---
         self.txt_bilgi = QTextEdit()
         self.txt_bilgi.setMaximumHeight(100)
         self.txt_bilgi.setReadOnly(True)
         self.txt_bilgi.setPlaceholderText("Tespit edilen nesnelerin sayısı ve sınıfları burada listelenecek...")
         ana_duzen.addWidget(self.txt_bilgi)
 
-        # --- 4. Butonlar ---
         buton_duzeni = QHBoxLayout()
         
         btn_sec = QPushButton("1. Resim Seç")
@@ -103,7 +91,7 @@ class NesneTespitUygulamasi(QMainWindow):
         
         btn_test = QPushButton("2. Test Et (Detect)")
         btn_test.setFont(QFont("Arial", 11, QFont.Bold))
-        btn_test.setStyleSheet("background-color: #4CAF50; color: white;") # Yeşil Buton
+        btn_test.setStyleSheet("background-color: #4CAF50; color: white;")
         btn_test.clicked.connect(self.test_et)
         
         btn_kaydet = QPushButton("3. Sonucu Kaydet")
@@ -115,8 +103,6 @@ class NesneTespitUygulamasi(QMainWindow):
         buton_duzeni.addWidget(btn_kaydet)
         ana_duzen.addLayout(buton_duzeni)
 
-        # --- BURADAN BAŞLA (VİDEO BUTONLARI) ---
-        # Alt sıra butonları (Video/Kamera İşlemleri)
         btn_layout_video = QHBoxLayout()
         
         btn_video_sec = QPushButton("🎬 Video Dosyası Seç")
@@ -135,9 +121,7 @@ class NesneTespitUygulamasi(QMainWindow):
         btn_layout_video.addWidget(btn_kamera)
         btn_layout_video.addWidget(btn_durdur)
         ana_duzen.addLayout(btn_layout_video)
-        # --- BURADA BİTİR ---
 
-        # --- 5. Durum Çubuğu ---
         self.durum_cubugu = QLabel("Hazır")
         ana_duzen.addWidget(self.durum_cubugu)
 
@@ -150,13 +134,11 @@ class NesneTespitUygulamasi(QMainWindow):
         if dosya_yolu:
             self.secilen_resim_yolu = dosya_yolu
             
-            # Resmi QLabel içinde göster (OpenCV ile okuyup Qt formatına çeviriyoruz)
             cv_img = cv2.imread(dosya_yolu)
             self.resmi_goster(cv_img, self.lbl_orijinal)
-            
-            # Sağ paneli ve yazıları temizle
+
             self.lbl_sonuc.setText("Tespit bekleniyor...")
-            self.lbl_sonuc.setPixmap(QPixmap()) # Resmi kaldır
+            self.lbl_sonuc.setPixmap(QPixmap())
             self.txt_bilgi.clear()
             self.durum_cubugu.setText(f"Resim seçildi: {os.path.basename(dosya_yolu)}")
 
@@ -167,29 +149,23 @@ class NesneTespitUygulamasi(QMainWindow):
             return
 
         self.durum_cubugu.setText("Tespit yapılıyor...")
-        QApplication.processEvents() # Arayüzün donmasını engelle
+        QApplication.processEvents()
 
-        # YOLO Tahmini Yap
         results = self.model(self.secilen_resim_yolu)
         sonuc = results[0]
 
-        # 1. Bounding Box çizilmiş resmi al (Numpy array formatında)
         self.islenmis_goruntu = sonuc.plot()
 
-        # 2. Resmi Sağ Panelde Göster
         self.resmi_goster(self.islenmis_goruntu, self.lbl_sonuc)
 
-        # 3. İstatistikleri Hesapla ve Yazdır
         nesne_sayilari = {}
-        sinif_isimleri = sonuc.names # {0: 'dur', 1: 'yaya_gecidi'}
+        sinif_isimleri = sonuc.names
         
-        # Kutuları say
         for box in sonuc.boxes:
             sinif_id = int(box.cls[0])
             isim = sinif_isimleri[sinif_id]
             nesne_sayilari[isim] = nesne_sayilari.get(isim, 0) + 1
         
-        # Metin kutusuna yaz
         rapor = f"SONUÇ RAPORU:\n----------------\n"
         toplam = 0
         if nesne_sayilari:
@@ -217,29 +193,26 @@ class NesneTespitUygulamasi(QMainWindow):
 
     def resmi_goster(self, cv_img, label_widget):
         """OpenCV resmini PyQt QLabel içinde gösterir."""
-        # OpenCV (BGR) -> Qt (RGB) dönüşümü
+
         rgb_img = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb_img.shape
         bytes_per_line = ch * w
         qt_img = QImage(rgb_img.data, w, h, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(qt_img)
-        
-        # Resmi etiketin boyutuna sığdır (Orantılı olarak)
+
         label_widget.setPixmap(pixmap.scaled(label_widget.width(), label_widget.height(), Qt.KeepAspectRatio))
 
-
-# --- VİDEO VE KAMERA İŞLEVLERİ (YENİ EKLENECEK KISIM) ---
     def video_sec(self):
         self.video_durdur()
         dosya_yolu, _ = QFileDialog.getOpenFileName(self, "Video Seç", "", "Video Dosyaları (*.mp4 *.avi *.mov)")
         if dosya_yolu:
             self.cap = cv2.VideoCapture(dosya_yolu)
-            self.timer.start(30) # Her 30ms'de bir kare oku
+            self.timer.start(30)
             self.durum_cubugu.setText("Video oynatılıyor...")
 
     def kamera_baslat(self):
         self.video_durdur()
-        self.cap = cv2.VideoCapture(0) # 0 = Varsayılan Webcam
+        self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
             QMessageBox.warning(self, "Hata", "Kamera bulunamadı!")
             return
@@ -251,14 +224,11 @@ class NesneTespitUygulamasi(QMainWindow):
         if self.cap is None: return
         ret, frame = self.cap.read()
         if ret:
-            # 1. Orijinal kareyi göster
             self.resmi_goster(frame, self.lbl_orijinal)
-            
-            # 2. YOLO Tahmini Yap (Video için track modu daha iyidir)
+
             results = self.model.track(frame, persist=True, verbose=False)
             res = results[0]
             
-            # 3. Sonucu göster
             self.islenmis_goruntu = res.plot()
             self.resmi_goster(self.islenmis_goruntu, self.lbl_sonuc)
         else:
@@ -278,4 +248,5 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     pencere = NesneTespitUygulamasi()
     pencere.show()
+
     sys.exit(app.exec_())
